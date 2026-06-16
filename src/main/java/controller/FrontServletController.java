@@ -1,11 +1,11 @@
-package servlet;
+package controller;
 
 import java.io.*;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 
-public class FrontControllerServlet extends HttpServlet {
+public class FrontServletController extends HttpServlet {
     
     public void proccessRequest(HttpServletRequest req, HttpServletResponse res)  throws ServletException, IOException { 
         res.setContentType("text/plain;charset=UTF-8");
