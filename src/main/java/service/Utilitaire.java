@@ -1,11 +1,16 @@
 package service;
 
 import java.util.*;
+
+import definition.UrlMapping;
+
 import java.io.File;
 import java.lang.annotation.*;
+import java.lang.reflect.Method;
 
 public class Utilitaire {
-    public List<String> getAllClassesWithAnnotationInPackage(String packageName, Class<? extends Annotation> annotationClass) throws Exception {
+    public List<String> getAllClassesWithAnnotationInPackage(String packageName,
+            Class<? extends Annotation> annotationClass) throws Exception {
         List<String> classNames = new ArrayList<>();
 
         List<Class<?>> classes = getClassesParPackage(packageName);
@@ -37,5 +42,29 @@ public class Utilitaire {
             }
         }
         return classes;
+    }
+
+    public String lireMethodeAndClass(String valeurRecherchee, String packageName) throws Exception {
+        String resultat = "";
+
+        List<String> urlsDisponibles = new ArrayList<>();
+
+        List<Class<?>> classes = getClassesParPackage(packageName);
+
+        for (Class<?> clazz : classes) {
+            for (Method methode : clazz.getDeclaredMethods()) {
+                if (methode.isAnnotationPresent(UrlMapping.class)) {
+                    UrlMapping ann = methode.getAnnotation(UrlMapping.class);
+                    urlsDisponibles.add(ann.url());
+
+                    if (ann.url().equals(valeurRecherchee)) {
+                        resultat = "Methode appellé " + methode.getName() + " dans la class " + clazz.getSimpleName();
+                        return resultat;
+                    }
+                }
+            }
+        }
+
+        return "URL '" + valeurRecherchee + "' non trouvée, les URLs disponibles sont : " + String.join(", ", urlsDisponibles);
     }
 }

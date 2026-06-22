@@ -1,2 +1,2 @@
-javac -cp "lib/servlet-api.jar" -d bin src/main/java/definition/*.java src/main/java/service/*.java src/main/java/listener/*.java src/main/java/controller/*.java
-jar -cvf FrontServletController.jar bin/controller bin/definition bin/service bin/listener
+javac -cp "lib/servlet-api.jar" -d . src/main/java/definition/*.java src/main/java/service/*.java src/main/java/listener/*.java src/main/java/controller/*.java
+jar -cvf FrontServletController.jar controller definition service listener
