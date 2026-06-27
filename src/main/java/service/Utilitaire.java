@@ -1,11 +1,16 @@
 package service;
 
 import java.util.*;
+
+import definition.UrlMapping;
+
 import java.io.File;
 import java.lang.annotation.*;
+import java.lang.reflect.Method;
 
 public class Utilitaire {
-    public List<String> getAllClassesWithAnnotationInPackage(String packageName, Class<? extends Annotation> annotationClass) throws Exception {
+    public List<String> getAllClassesWithAnnotationInPackage(String packageName,
+            Class<? extends Annotation> annotationClass) throws Exception {
         List<String> classNames = new ArrayList<>();
 
         List<Class<?>> classes = getClassesParPackage(packageName);
@@ -37,5 +42,47 @@ public class Utilitaire {
             }
         }
         return classes;
+    }
+
+    public String lireMethodeAndClass(String valeurRecherchee, String packageName) throws Exception {
+        String resultat = "";
+
+        List<String> urlsDisponibles = new ArrayList<>();
+
+        Map<String, UrlMethode> urlMappings = getAllUrlMappings(packageName);
+
+        for(Map.Entry<String, UrlMethode> entry : urlMappings.entrySet()) {
+            String url = entry.getKey();
+            urlsDisponibles.add(url);
+        }
+
+        for(Map.Entry<String, UrlMethode> entry : urlMappings.entrySet()) {
+            String url = entry.getKey();
+            UrlMethode urlMethode = entry.getValue();
+
+            if (url.equals(valeurRecherchee)) {
+                resultat = "Methode appellé : '" + urlMethode.getMethodeName() + "' dans la class : '" + urlMethode.getClassName() + "'";
+                return resultat;
+            }
+        }
+
+        return "URL '" + valeurRecherchee + "' non trouvée, les URLs disponibles sont : " + String.join(", ", urlsDisponibles);
+    }
+
+    public Map<String, UrlMethode> getAllUrlMappings(String packageName) throws Exception {
+        Map<String, UrlMethode> urlMappings = new HashMap<>();
+
+        List<Class<?>> classes = getClassesParPackage(packageName);
+
+        for (Class<?> clazz : classes) {
+            for (Method methode : clazz.getDeclaredMethods()) {
+                if (methode.isAnnotationPresent(UrlMapping.class)) {
+                    UrlMapping ann = methode.getAnnotation(UrlMapping.class);
+                    urlMappings.put(ann.url(), new UrlMethode(clazz.getSimpleName(), methode.getName()));
+                }
+            }
+        }
+
+        return urlMappings;
     }
 }
