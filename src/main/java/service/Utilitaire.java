@@ -44,29 +44,23 @@ public class Utilitaire {
         return classes;
     }
 
-    public String lireMethodeAndClass(String valeurRecherchee, String packageName) throws Exception {
-        String resultat = "";
+    public String lireMethodeAndClass(String url, String httpMethode, String packageName) throws Exception {
+        Map<UtilMethode, UrlMethode> urlMappings = getAllUrlMappingsWithUtilMethode(packageName);
+
+        UtilMethode cle = new UtilMethode(url, httpMethode);
+
+        UrlMethode urlMethode = urlMappings.get(cle);
+        if (urlMethode != null) {
+            return "Méthode appelée : '" + urlMethode.getMethodeName()
+                    + "' dans la classe : '" + urlMethode.getClassName() + "' retourne la valeur : '" + urlMethode.getMethodeName() + "'";
+        }
 
         List<String> urlsDisponibles = new ArrayList<>();
-
-        Map<String, UrlMethode> urlMappings = getAllUrlMappings(packageName);
-
-        for(Map.Entry<String, UrlMethode> entry : urlMappings.entrySet()) {
-            String url = entry.getKey();
-            urlsDisponibles.add(url);
+        for (UtilMethode u : urlMappings.keySet()) {
+            urlsDisponibles.add("[" + u.getUrl() + ", " + u.getMethode() + "]");
         }
-
-        for(Map.Entry<String, UrlMethode> entry : urlMappings.entrySet()) {
-            String url = entry.getKey();
-            UrlMethode urlMethode = entry.getValue();
-
-            if (url.equals(valeurRecherchee)) {
-                resultat = "Methode appellé : '" + urlMethode.getMethodeName() + "' dans la class : '" + urlMethode.getClassName() + "'";
-                return resultat;
-            }
-        }
-
-        return "URL '" + valeurRecherchee + "' non trouvée, les URLs disponibles sont : " + String.join(", ", urlsDisponibles);
+        throw new Exception("Erreur : '" + url + "' [" + httpMethode + "] non trouvée. "
+                + "URLs disponibles : " + urlsDisponibles);
     }
 
     public Map<String, UrlMethode> getAllUrlMappings(String packageName) throws Exception {
@@ -79,6 +73,38 @@ public class Utilitaire {
                 if (methode.isAnnotationPresent(UrlMapping.class)) {
                     UrlMapping ann = methode.getAnnotation(UrlMapping.class);
                     urlMappings.put(ann.url(), new UrlMethode(clazz.getSimpleName(), methode.getName()));
+                }
+            }
+        }
+
+        return urlMappings;
+    }
+
+    public Map<UtilMethode, UrlMethode> getAllUrlMappingsWithUtilMethode(String packageName) throws Exception {
+        Map<UtilMethode, UrlMethode> urlMappings = new HashMap<>();
+
+        List<Class<?>> classes = getClassesParPackage(packageName);
+
+        for (Class<?> clazz : classes) {
+            for (Method methode : clazz.getDeclaredMethods()) {
+                if (methode.isAnnotationPresent(UrlMapping.class)) {
+                    UrlMapping ann = methode.getAnnotation(UrlMapping.class);
+                    UtilMethode utilMethode = new UtilMethode(ann.url(), ann.methode());
+                    UrlMethode urlMethode = new UrlMethode(clazz.getSimpleName(), methode.getName());
+
+                    if (urlMappings != null) {
+                        for (Map.Entry<UtilMethode, UrlMethode> entry : urlMappings.entrySet()) {
+                            UtilMethode existingUtilMethode = entry.getKey();
+                            if (utilMethode.equals(existingUtilMethode)) {
+                                throw new Exception("Erruer :  l'url : '" + utilMethode.getUrl() + "' et la methode : '"
+                                        + utilMethode.getMethode() + "' existe deja dans la class : '"
+                                        + entry.getValue().getClassName() + "' et la methode : '"
+                                        + entry.getValue().getMethodeName() + "'");
+                            }
+                        }
+                    }
+                    
+                    urlMappings.put(utilMethode, urlMethode);
                 }
             }
         }

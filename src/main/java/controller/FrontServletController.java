@@ -42,9 +42,10 @@ public class FrontServletController extends HttpServlet {
         String resultat = "";
 
         try {
-            resultat = utilitaire.lireMethodeAndClass(chemin, packageName);
+            resultat = utilitaire.lireMethodeAndClass(chemin, req.getMethod(), packageName);
         } catch (Exception e) {
             e.printStackTrace();
+            resultat = e.getMessage();
         }
 
         out.println("Resultat de l'url : " + resultat);
@@ -53,16 +54,17 @@ public class FrontServletController extends HttpServlet {
         // out.println("Class : " + className);
         // }
 
-        List<String> classNameControllerFromListener = (List<String>) getServletContext()
-                .getAttribute("classNameController");
+        // List<String> classNameControllerFromListener = (List<String>)
+        // getServletContext()
+        // .getAttribute("classNameController");
 
-        if (classNameControllerFromListener == null) {
-            out.println("Class from listener is null");
-        } else {
-            for (String className : classNameControllerFromListener) {
-                out.println("Class from listener : " + className);
-            }
-        }
+        // if (classNameControllerFromListener == null) {
+        // out.println("Class from listener is null");
+        // } else {
+        // for (String className : classNameControllerFromListener) {
+        // out.println("Class from listener : " + className);
+        // }
+        // }
     }
 
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
