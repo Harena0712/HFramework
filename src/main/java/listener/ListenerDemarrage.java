@@ -15,8 +15,8 @@ public class ListenerDemarrage implements ServletContextListener {
     private List<String> classNameController;
 
     @Override
-    public void contextInitialized(ServletContextEvent sce) {
-        ServletContext context = sce.getServletContext();
+    public void contextInitialized(ServletContextEvent ServletContextEvent) {
+        ServletContext context = ServletContextEvent.getServletContext();
         String packageName = context.getInitParameter("packageName");
         try {
             classNameController = utilitaire.getAllClassesWithAnnotationInPackage(packageName, Controller.class);
@@ -28,7 +28,7 @@ public class ListenerDemarrage implements ServletContextListener {
     }
 
     @Override
-    public void contextDestroyed(ServletContextEvent sce) {
+    public void contextDestroyed(ServletContextEvent ServletContextEvent) {
 
     }
 
