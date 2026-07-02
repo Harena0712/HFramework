@@ -43,16 +43,23 @@ public class Utilitaire {
         }
         return classes;
     }
-
+    
     public String lireMethodeAndClass(String url, String httpMethode, String packageName) throws Exception {
         Map<UtilMethode, UrlMethode> urlMappings = getAllUrlMappingsWithUtilMethode(packageName);
-
         UtilMethode cle = new UtilMethode(url, httpMethode);
-
         UrlMethode urlMethode = urlMappings.get(cle);
+
         if (urlMethode != null) {
-            return "Méthode appelée : '" + urlMethode.getMethodeName()
-                    + "' dans la classe : '" + urlMethode.getClassName() + "' retourne la valeur : '" + urlMethode.getMethodeName() + "'";
+            String nomMethode = urlMethode.getMethodeName();
+            Class<?> classMethod = Class.forName(packageName + "." + urlMethode.getClassName());
+
+            Method methode = classMethod.getMethod(nomMethode);
+            Object instance = classMethod.getDeclaredConstructor().newInstance();
+            Object resultat = methode.invoke(instance);
+
+            return "Méthode appelée : '" + nomMethode
+                    + "' dans la classe : '" + urlMethode.getClassName() + "' retourne la valeur : '"
+                    + String.valueOf(resultat) + "'";
         }
 
         List<String> urlsDisponibles = new ArrayList<>();
@@ -103,7 +110,7 @@ public class Utilitaire {
                             }
                         }
                     }
-                    
+
                     urlMappings.put(utilMethode, urlMethode);
                 }
             }
