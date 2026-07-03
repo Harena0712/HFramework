@@ -3,6 +3,7 @@ package controller;
 import java.io.*;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -41,8 +42,11 @@ public class FrontServletController extends HttpServlet {
         String packageName = this.getInitParameter("packageName");
         String resultat = "";
 
+        Map<service.UtilMethode, service.UrlMethode> urlMappings = (Map<service.UtilMethode, service.UrlMethode>) getServletContext()
+                .getAttribute("urlMappings");
+
         try {
-            resultat = utilitaire.lireMethodeAndClass(chemin, req.getMethod(), packageName);
+            resultat = utilitaire.lireMethodeAndClass(chemin, req.getMethod(), packageName, urlMappings);
         } catch (Exception e) {
             e.printStackTrace();
             resultat = e.getMessage();

@@ -44,9 +44,12 @@ public class Utilitaire {
         return classes;
     }
     
-    public String lireMethodeAndClass(String url, String httpMethode, String packageName) throws Exception {
-        Map<UtilMethode, UrlMethode> urlMappings = getAllUrlMappingsWithUtilMethode(packageName);
+    public String lireMethodeAndClass(String url, String httpMethode, String packageName, Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
         UtilMethode cle = new UtilMethode(url, httpMethode);
+
+        if(urlMappings == null) {
+            throw new Exception("Erreur : urlMappings est null. Assurez-vous que le ListenerDemarrage a été correctement initialisé.");
+        }
         UrlMethode urlMethode = urlMappings.get(cle);
 
         if (urlMethode != null) {
@@ -87,8 +90,7 @@ public class Utilitaire {
         return urlMappings;
     }
 
-    public Map<UtilMethode, UrlMethode> getAllUrlMappingsWithUtilMethode(String packageName) throws Exception {
-        Map<UtilMethode, UrlMethode> urlMappings = new HashMap<>();
+    public void getAllUrlMappingsWithUtilMethode(String packageName, Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
 
         List<Class<?>> classes = getClassesParPackage(packageName);
 
@@ -115,7 +117,5 @@ public class Utilitaire {
                 }
             }
         }
-
-        return urlMappings;
     }
 }
