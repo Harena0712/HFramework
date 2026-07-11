@@ -3,8 +3,13 @@ package service;
 import java.util.*;
 
 import definition.UrlMapping;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.annotation.*;
 import java.lang.reflect.Method;
 
@@ -43,26 +48,24 @@ public class Utilitaire {
         }
         return classes;
     }
-    
-    public String lireMethodeAndClass(String url, String httpMethode, String packageName, Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
+
+    public Object lireMethodeAndClass(String url, String httpMethode, String packageName,
+            Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
+
         UtilMethode cle = new UtilMethode(url, httpMethode);
-
-        if(urlMappings == null) {
-            throw new Exception("Erreur : urlMappings est null. Assurez-vous que le ListenerDemarrage a été correctement initialisé.");
+        if (urlMappings == null) {
+            throw new Exception(
+                    "Erreur : urlMappings est null. Assurez-vous que le ListenerDemarrage a été correctement initialisé.");
         }
-        UrlMethode urlMethode = urlMappings.get(cle);
 
+        UrlMethode urlMethode = urlMappings.get(cle);
         if (urlMethode != null) {
             String nomMethode = urlMethode.getMethodeName();
             Class<?> classMethod = Class.forName(packageName + "." + urlMethode.getClassName());
-
             Method methode = classMethod.getMethod(nomMethode);
             Object instance = classMethod.getDeclaredConstructor().newInstance();
-            Object resultat = methode.invoke(instance);
 
-            return "Méthode appelée : '" + nomMethode
-                    + "' dans la classe : '" + urlMethode.getClassName() + "' retourne la valeur : '"
-                    + String.valueOf(resultat) + "'";
+            return methode.invoke(instance);
         }
 
         List<String> urlsDisponibles = new ArrayList<>();
@@ -90,7 +93,8 @@ public class Utilitaire {
         return urlMappings;
     }
 
-    public void getAllUrlMappingsWithUtilMethode(String packageName, Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
+    public void getAllUrlMappingsWithUtilMethode(String packageName, Map<UtilMethode, UrlMethode> urlMappings)
+            throws Exception {
 
         List<Class<?>> classes = getClassesParPackage(packageName);
 
@@ -117,5 +121,23 @@ public class Utilitaire {
                 }
             }
         }
+    }
+
+    public void trouverChemin(ModelAndView mv,
+            HttpServletRequest request,
+            HttpServletResponse response, String prefix, String suffix)
+            throws ServletException, IOException {
+
+        Map<String, Object> model = mv.getModel();
+        if (model != null) {
+            for (Map.Entry<String, Object> entry : model.entrySet()) {
+                request.setAttribute(entry.getKey(), entry.getValue());
+            }
+        }
+
+        String fullPath = prefix + mv.getViewName() + suffix;
+
+        RequestDispatcher dispatcher = request.getRequestDispatcher(fullPath);
+        dispatcher.forward(request, response);
     }
 }

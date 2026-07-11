@@ -3,7 +3,6 @@ package listener;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
@@ -18,9 +17,10 @@ public class ListenerDemarrage implements ServletContextListener {
     private List<String> classNameController;
 
     @Override
-    public void contextInitialized(ServletContextEvent ServletContextEvent) {
-        ServletContext context = ServletContextEvent.getServletContext();
+    public void contextInitialized(ServletContextEvent servletContextEvent) {
+        ServletContext context = servletContextEvent.getServletContext();
         String packageName = context.getInitParameter("packageName");
+
         try {
             classNameController = utilitaire.getAllClassesWithAnnotationInPackage(packageName, Controller.class);
             context.setAttribute("classNameController", classNameController);
@@ -36,10 +36,22 @@ public class ListenerDemarrage implements ServletContextListener {
             throw new RuntimeException(
                     "Erreur d'initialisation : urlMappings non initialisé. Cause : " + e.getMessage(), e);
         }
+
+        String prefix = context.getInitParameter("prefix");
+        String suffix = context.getInitParameter("suffix");
+
+        if(prefix == null) {
+            prefix = "/WEB-INF/template/";
+        }
+        if(suffix == null) {
+            suffix = ".jsp";
+        }
+
+        context.setAttribute("prefix", prefix);
+        context.setAttribute("suffix", suffix);
     }
 
     @Override
-    public void contextDestroyed(ServletContextEvent ServletContextEvent) {
-
+    public void contextDestroyed(ServletContextEvent servletContextEvent) {
     }
 }
