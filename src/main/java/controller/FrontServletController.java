@@ -7,7 +7,7 @@ import java.util.Map;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
-
+import service.ModelAndView;
 import service.Utilitaire;
 import definition.*;
 
@@ -29,30 +29,42 @@ public class FrontServletController extends HttpServlet {
     // }
     // }
 
-    public void proccessRequest(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+    public void proccessRequest(HttpServletRequest req, HttpServletResponse res) throws Exception {
         res.setContentType("text/plain;charset=UTF-8");
 
         String path = req.getRequestURI().toString();
         PrintWriter out = res.getWriter();
-        out.println("Path : " + path);
 
         String contextPath = req.getContextPath();
         String chemin = path.substring(contextPath.length() + 1);
 
         String packageName = this.getInitParameter("packageName");
-        String resultat = "";
 
         Map<service.UtilMethode, service.UrlMethode> urlMappings = (Map<service.UtilMethode, service.UrlMethode>) getServletContext()
                 .getAttribute("urlMappings");
+        if (urlMappings == null) {
+            throw new Exception("Erreur : urlMappings est null...");
+        }
+        String prefix = (String) getServletContext().getAttribute("prefix");
+        String suffix = (String) getServletContext().getAttribute("suffix");
 
         try {
-            resultat = utilitaire.lireMethodeAndClass(chemin, req.getMethod(), packageName, urlMappings);
+            Object result = utilitaire.lireMethodeAndClass(chemin, req.getMethod(), packageName, urlMappings);
+
+            ModelAndView mv;
+            if (result instanceof ModelAndView) {
+                mv = (ModelAndView) result;
+            } else if (result instanceof String) {
+                mv = new ModelAndView((String) result);
+            } else {
+                throw new ServletException("Type de retour non supporté : " + result);
+            }
+
+            utilitaire.trouverChemin(mv, req, res, prefix, suffix);
         } catch (Exception e) {
             e.printStackTrace();
-            resultat = e.getMessage();
+            out.println("Resultat de l'url : " + e.getMessage());
         }
-
-        out.println("Resultat de l'url : " + resultat);
 
         // for (String className : classNameController) {
         // out.println("Class : " + className);
@@ -72,10 +84,18 @@ public class FrontServletController extends HttpServlet {
     }
 
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-        proccessRequest(req, res);
+        try {
+            proccessRequest(req, res);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-        proccessRequest(req, res);
+        try {
+            proccessRequest(req, res);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
