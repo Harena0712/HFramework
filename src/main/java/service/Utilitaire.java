@@ -2,7 +2,7 @@ package service;
 
 import java.util.*;
 
-import definition.UrlMapping;
+import definition.*;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +14,9 @@ import java.lang.annotation.*;
 import java.lang.reflect.Method;
 
 public class Utilitaire {
+    public record InvocationResult(Object value, boolean json) {
+    }
+
     public List<String> getAllClassesWithAnnotationInPackage(String packageName,
             Class<? extends Annotation> annotationClass) throws Exception {
         List<String> classNames = new ArrayList<>();
@@ -51,6 +54,11 @@ public class Utilitaire {
 
     public Object lireMethodeAndClass(String url, String httpMethode, String packageName,
             Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
+        return lireMethodeAndClassResult(url, httpMethode, packageName, urlMappings).value();
+    }
+
+    public InvocationResult lireMethodeAndClassResult(String url, String httpMethode, String packageName,
+            Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
 
         UtilMethode cle = new UtilMethode(url, httpMethode);
         if (urlMappings == null) {
@@ -64,8 +72,8 @@ public class Utilitaire {
             Class<?> classMethod = Class.forName(packageName + "." + urlMethode.getClassName());
             Method methode = classMethod.getMethod(nomMethode);
             Object instance = classMethod.getDeclaredConstructor().newInstance();
-
-            return methode.invoke(instance);
+            Object value = methode.invoke(instance);
+            return new InvocationResult(value, methode.isAnnotationPresent(JSON.class));
         }
 
         List<String> urlsDisponibles = new ArrayList<>();
