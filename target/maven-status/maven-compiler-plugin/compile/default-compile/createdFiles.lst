@@ -1,7 +1,9 @@
 definition/Controller.class
 service/UrlMethode.class
 service/SpringContextHolder.class
+definition/JSON.class
 service/ModelAndView.class
+service/Utilitaire$InvocationResult.class
 listener/ListenerDemarrage.class
 service/UtilMethode.class
 controller/FrontServletController.class

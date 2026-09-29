@@ -1,7 +1,3 @@
-javac -cp "lib/servlet-api.jar" -d . src/main/java/definition/*.java src/main/java/service/*.java src/main/java/listener/*.java src/main/java/controller/*.java
-jar -cvf FrontServletController.jar controller definition service listener
-
-mvn install
-
-javac -cp "lib/servlet-api.jar:lib/spring-context-6.1.14.jar:lib/spring-beans-6.1.14.jar:lib/spring-core-6.1.14.jar:lib/spring-aop-6.1.14.jar:lib/spring-expression-6.1.14.jar:lib/spring-jcl-6.1.14.jar" -d . src/main/java/definition/*.java src/main/java/service/*.java src/main/java/listener/*.java src/main/java/controller/*.java
+mvn -q dependency:build-classpath -Dmdep.outputFile=target/dependencies.classpath
+javac -cp "lib/servlet-api.jar:$(cat target/dependencies.classpath)" -d . src/main/java/definition/*.java src/main/java/service/*.java src/main/java/listener/*.java src/main/java/controller/*.java
 jar -cvf FrontServletController.jar controller definition service listener

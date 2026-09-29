@@ -5,6 +5,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import service.ModelAndView;
@@ -16,6 +17,7 @@ public class FrontServletController extends HttpServlet {
 
     // private List<String> classNameController;
     private Utilitaire utilitaire = new Utilitaire();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // public void init() throws ServletException {
     // String packageName = this.getInitParameter("packageName");
@@ -33,7 +35,6 @@ public class FrontServletController extends HttpServlet {
         res.setContentType("text/plain;charset=UTF-8");
 
         String path = req.getRequestURI().toString();
-        PrintWriter out = res.getWriter();
 
         String contextPath = req.getContextPath();
         String chemin = path.substring(contextPath.length() + 1);
@@ -49,7 +50,16 @@ public class FrontServletController extends HttpServlet {
         String suffix = (String) getServletContext().getAttribute("suffix");
 
         try {
-            Object result = utilitaire.lireMethodeAndClass(chemin, req.getMethod(), packageName, urlMappings);
+            Utilitaire.InvocationResult invocationResult = utilitaire.lireMethodeAndClassResult(
+                    chemin, req.getMethod(), packageName, urlMappings);
+            Object result = invocationResult.value();
+
+            if (invocationResult.json()) {
+                res.setContentType("application/json;charset=UTF-8");
+                PrintWriter out = res.getWriter();
+                objectMapper.writeValue(out, result);
+                return;
+            }
 
             ModelAndView mv;
             if (result instanceof ModelAndView) {
@@ -63,7 +73,8 @@ public class FrontServletController extends HttpServlet {
             utilitaire.trouverChemin(mv, req, res, prefix, suffix);
         } catch (Exception e) {
             e.printStackTrace();
-            out.println("Resultat de l'url : " + e.getMessage());
+            res.setContentType("text/plain;charset=UTF-8");
+            res.getWriter().println("Resultat de l'url : " + e.getMessage());
         }
 
         // for (String className : classNameController) {
