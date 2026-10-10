@@ -1,3 +1,5 @@
+mvn clean install
+
 mvn -q dependency:build-classpath -Dmdep.outputFile=target/dependencies.classpath
 javac -cp "lib/servlet-api.jar:$(cat target/dependencies.classpath)" -d . src/main/java/definition/*.java src/main/java/service/*.java src/main/java/listener/*.java src/main/java/controller/*.java
 jar -cvf FrontServletController.jar controller definition service listener
