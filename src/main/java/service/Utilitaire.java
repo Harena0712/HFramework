@@ -11,7 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.*;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
 
 public class Utilitaire {
     public record InvocationResult(Object value, boolean json) {
@@ -53,12 +53,12 @@ public class Utilitaire {
     }
 
     public Object lireMethodeAndClass(String url, String httpMethode, String packageName,
-            Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
-        return lireMethodeAndClassResult(url, httpMethode, packageName, urlMappings).value();
+            Map<UtilMethode, UrlMethode> urlMappings, Map<String, String> parametres) throws Exception {
+        return lireMethodeAndClassResult(url, httpMethode, packageName, urlMappings, parametres).value();
     }
 
     public InvocationResult lireMethodeAndClassResult(String url, String httpMethode, String packageName,
-            Map<UtilMethode, UrlMethode> urlMappings) throws Exception {
+            Map<UtilMethode, UrlMethode> urlMappings, Map<String, String> parametres) throws Exception {
 
         UtilMethode cle = new UtilMethode(url, httpMethode);
         if (urlMappings == null) {
@@ -70,9 +70,38 @@ public class Utilitaire {
         if (urlMethode != null) {
             String nomMethode = urlMethode.getMethodeName();
             Class<?> classMethod = Class.forName(packageName + "." + urlMethode.getClassName());
-            Method methode = classMethod.getMethod(nomMethode);
+
+            Method methode = null;
+            for (Method m : classMethod.getMethods()) {
+                if (m.getName().equals(nomMethode)) {
+                    methode = m;
+                    break;
+                }
+            }
+            if (methode == null) {
+                throw new NoSuchMethodException(nomMethode);
+            }
+
             Object instance = classMethod.getDeclaredConstructor().newInstance();
-            Object value = methode.invoke(instance);
+
+            Parameter[] params = methode.getParameters();
+            Object[] args = new Object[params.length];
+
+            for (int i = 0; i < params.length; i++) {
+                Parameter p = params[i];
+                Class<?> type = p.getType();
+
+                String nomParam = p.getName();
+
+                args[i] = convertir(parametres.get(nomParam), type);
+            }
+
+            Object value;
+            try {
+                value = methode.invoke(instance, args);
+            } catch (InvocationTargetException e) {
+                throw (e.getCause() instanceof Exception) ? (Exception) e.getCause() : e;
+            }
             return new InvocationResult(value, methode.isAnnotationPresent(JSON.class));
         }
 
@@ -147,5 +176,21 @@ public class Utilitaire {
 
         RequestDispatcher dispatcher = request.getRequestDispatcher(fullPath);
         dispatcher.forward(request, response);
+    }
+
+    private Object convertir(String valeur, Class<?> type) {
+        if (type == String.class) return valeur;
+        if (valeur == null || valeur.isEmpty()) {
+            if (type == int.class) return 0;
+            if (type == long.class) return 0L;
+            if (type == double.class) return 0.0;
+            if (type == boolean.class) return false;
+            return null;
+        }
+        if (type == int.class || type == Integer.class) return Integer.parseInt(valeur);
+        if (type == long.class || type == Long.class) return Long.parseLong(valeur);
+        if (type == double.class || type == Double.class) return Double.parseDouble(valeur);
+        if (type == boolean.class || type == Boolean.class) return Boolean.parseBoolean(valeur);
+        return valeur;
     }
 }

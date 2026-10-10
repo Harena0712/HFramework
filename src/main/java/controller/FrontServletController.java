@@ -2,8 +2,7 @@ package controller;
 
 import java.io.*;
 import java.net.URI;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.*;
@@ -49,9 +48,15 @@ public class FrontServletController extends HttpServlet {
         String prefix = (String) getServletContext().getAttribute("prefix");
         String suffix = (String) getServletContext().getAttribute("suffix");
 
+        req.setCharacterEncoding("UTF-8");
+        Map<String, String> parametres = new HashMap<>();
+        for (Map.Entry<String, String[]> e : req.getParameterMap().entrySet()) {
+            parametres.put(e.getKey(), e.getValue()[0]);
+        }
+
         try {
             Utilitaire.InvocationResult invocationResult = utilitaire.lireMethodeAndClassResult(
-                    chemin, req.getMethod(), packageName, urlMappings);
+                    chemin, req.getMethod(), packageName, urlMappings, parametres);
             Object result = invocationResult.value();
 
             if (invocationResult.json()) {
@@ -74,7 +79,7 @@ public class FrontServletController extends HttpServlet {
         } catch (Exception e) {
             e.printStackTrace();
             res.setContentType("text/plain;charset=UTF-8");
-            res.getWriter().println("Resultat de l'url : " + e.getMessage());
+            res.getWriter().println("Erreur : " + e.getClass().getName() + " : " + e.getMessage());
         }
 
         // for (String className : classNameController) {
