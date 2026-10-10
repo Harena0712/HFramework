@@ -87,13 +87,25 @@ public class Utilitaire {
             Parameter[] params = methode.getParameters();
             Object[] args = new Object[params.length];
 
+            // for (int i = 0; i < params.length; i++) {
+            //     Parameter p = params[i];
+            //     Class<?> type = p.getType();
+
+            //     String nomParam = p.getName();
+
+            //     args[i] = convertir(parametres.get(nomParam), type);
+            // }
+            
             for (int i = 0; i < params.length; i++) {
                 Parameter p = params[i];
                 Class<?> type = p.getType();
-
                 String nomParam = p.getName();
 
-                args[i] = convertir(parametres.get(nomParam), type);
+                if (estTypeSimple(type)) {
+                    args[i] = convertir(parametres.get(nomParam), type);
+                } else {
+                    args[i] = construireObjet(type, nomParam, parametres);
+                }
             }
 
             Object value;
@@ -192,5 +204,28 @@ public class Utilitaire {
         if (type == double.class || type == Double.class) return Double.parseDouble(valeur);
         if (type == boolean.class || type == Boolean.class) return Boolean.parseBoolean(valeur);
         return valeur;
+    }
+
+    private boolean estTypeSimple(Class<?> type) {
+        return type.isPrimitive()
+                || type == String.class
+                || type == Boolean.class
+                || type == Character.class
+                || Number.class.isAssignableFrom(type);
+    }
+
+    private Object construireObjet(Class<?> type, String prefixe, Map<String, String> parametres) throws Exception {
+        Object obj = type.getDeclaredConstructor().newInstance();
+
+        for (Field f : type.getDeclaredFields()) {
+            if (Modifier.isStatic(f.getModifiers()) || Modifier.isFinal(f.getModifiers())) continue;
+
+            String valeur = parametres.get(prefixe + "." + f.getName());
+            if (valeur == null) continue;
+
+            f.setAccessible(true);
+            f.set(obj, convertir(valeur, f.getType()));
+        }
+        return obj;
     }
 }
