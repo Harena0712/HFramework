@@ -11,6 +11,15 @@ import service.ModelAndView;
 import service.Utilitaire;
 import definition.*;
 
+import java.nio.charset.StandardCharsets;
+import jakarta.servlet.annotation.MultipartConfig;
+
+@MultipartConfig(
+    fileSizeThreshold = 1024 * 1024,
+    maxFileSize = 10 * 1024 * 1024,
+    maxRequestSize = 20 * 1024 * 1024
+)
+
 @Controller
 public class FrontServletController extends HttpServlet {
 
@@ -49,11 +58,32 @@ public class FrontServletController extends HttpServlet {
         String suffix = (String) getServletContext().getAttribute("suffix");
 
         req.setCharacterEncoding("UTF-8");
-        Map<String, String> parametres = new HashMap<>();
+        Map<String, Object> parametres = new HashMap<>();
+
+        // 1. Champs texte (GET, POST classique, et champs texte d'un multipart)
         for (Map.Entry<String, String[]> e : req.getParameterMap().entrySet()) {
             parametres.put(e.getKey(), e.getValue()[0]);
         }
 
+        // 2. Champs texte et fichiers d'un formulaire multipart
+        String ct = req.getContentType();
+        if (ct != null && ct.toLowerCase().startsWith("multipart/")) {
+            for (Part part : req.getParts()) {
+                if (part.getSubmittedFileName() != null) {
+                    // c'est un fichier (input type="file")
+                    parametres.put(part.getName(), part);
+                } else if (!parametres.containsKey(part.getName())) {
+                    // champ texte non vu par getParameterMap : on le lit nous-mêmes
+                    try (InputStream in = part.getInputStream()) {
+                        parametres.put(part.getName(),
+                                new String(in.readAllBytes(), StandardCharsets.UTF_8));
+                    }
+                }
+            }
+        }
+
+        System.out.println("Content-Type = " + ct);
+        System.out.println("parametres = " + parametres);
         try {
             Utilitaire.InvocationResult invocationResult = utilitaire.lireMethodeAndClassResult(
                     chemin, req.getMethod(), packageName, urlMappings, parametres);
