@@ -5,6 +5,7 @@ import java.net.URI;
 import java.util.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.ConcurrentHashMap;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import service.ModelAndView;
@@ -38,6 +39,12 @@ public class FrontServletController extends HttpServlet {
     // throw new ServletException(e);
     // }
     // }
+    // dans FrontServletController
+
+    @Override
+    public void init() throws ServletException {
+        getServletContext().setAttribute("controllerInstances", new ConcurrentHashMap<String, Object>());
+    }
 
     public void proccessRequest(HttpServletRequest req, HttpServletResponse res) throws Exception {
         res.setContentType("text/plain;charset=UTF-8");
@@ -56,24 +63,23 @@ public class FrontServletController extends HttpServlet {
         }
         String prefix = (String) getServletContext().getAttribute("prefix");
         String suffix = (String) getServletContext().getAttribute("suffix");
+        
+        req.setCharacterEncoding("UTF-8");          // 1. avant toute lecture de paramètre
 
-        req.setCharacterEncoding("UTF-8");
         Map<String, Object> parametres = new HashMap<>();
 
-        // 1. Champs texte (GET, POST classique, et champs texte d'un multipart)
+        // 2. Champs texte
         for (Map.Entry<String, String[]> e : req.getParameterMap().entrySet()) {
             parametres.put(e.getKey(), e.getValue()[0]);
         }
 
-        // 2. Champs texte et fichiers d'un formulaire multipart
+        // 3. Fichiers du multipart (si ce bloc est déjà chez toi, garde-le ici)
         String ct = req.getContentType();
         if (ct != null && ct.toLowerCase().startsWith("multipart/")) {
             for (Part part : req.getParts()) {
                 if (part.getSubmittedFileName() != null) {
-                    // c'est un fichier (input type="file")
                     parametres.put(part.getName(), part);
                 } else if (!parametres.containsKey(part.getName())) {
-                    // champ texte non vu par getParameterMap : on le lit nous-mêmes
                     try (InputStream in = part.getInputStream()) {
                         parametres.put(part.getName(),
                                 new String(in.readAllBytes(), StandardCharsets.UTF_8));
@@ -81,6 +87,24 @@ public class FrontServletController extends HttpServlet {
                 }
             }
         }
+
+        // 4. Map des instances de contrôleurs (créée une seule fois pour toute l'application)
+        ServletContext ctx = getServletContext();
+        ConcurrentHashMap<String, Object> instances =
+                (ConcurrentHashMap<String, Object>) ctx.getAttribute("controllerInstances");
+        if (instances == null) {
+            synchronized (ctx) {
+                instances = (ConcurrentHashMap<String, Object>) ctx.getAttribute("controllerInstances");
+                if (instances == null) {
+                    instances = new ConcurrentHashMap<>();
+                    ctx.setAttribute("controllerInstances", instances);
+                }
+            }
+        }
+
+        // 5. Clés réservées, en dernier pour qu'un champ de formulaire ne puisse pas les écraser
+        parametres.put("__httpSession", req.getSession());
+        parametres.put("__instances", instances);
 
         System.out.println("Content-Type = " + ct);
         System.out.println("parametres = " + parametres);
