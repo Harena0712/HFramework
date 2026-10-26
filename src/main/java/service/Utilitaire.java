@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,79 +54,6 @@ public class Utilitaire {
         return classes;
     }
 
-    // public Object lireMethodeAndClass(String url, String httpMethode, String packageName,
-    //         Map<UtilMethode, UrlMethode> urlMappings, Map<String, String> parametres) throws Exception {
-    //     return lireMethodeAndClassResult(url, httpMethode, packageName, urlMappings, parametres).value();
-    // }
-
-    // public InvocationResult lireMethodeAndClassResult(String url, String httpMethode, String packageName,
-    //         Map<UtilMethode, UrlMethode> urlMappings, Map<String, String> parametres) throws Exception {
-
-    //     UtilMethode cle = new UtilMethode(url, httpMethode);
-    //     if (urlMappings == null) {
-    //         throw new Exception(
-    //                 "Erreur : urlMappings est null. Assurez-vous que le ListenerDemarrage a été correctement initialisé.");
-    //     }
-
-    //     UrlMethode urlMethode = urlMappings.get(cle);
-    //     if (urlMethode != null) {
-    //         String nomMethode = urlMethode.getMethodeName();
-    //         Class<?> classMethod = Class.forName(packageName + "." + urlMethode.getClassName());
-
-    //         Method methode = null;
-    //         for (Method m : classMethod.getMethods()) {
-    //             if (m.getName().equals(nomMethode)) {
-    //                 methode = m;
-    //                 break;
-    //             }
-    //         }
-    //         if (methode == null) {
-    //             throw new NoSuchMethodException(nomMethode);
-    //         }
-
-    //         Object instance = classMethod.getDeclaredConstructor().newInstance();
-
-    //         Parameter[] params = methode.getParameters();
-    //         Object[] args = new Object[params.length];
-
-    //         // for (int i = 0; i < params.length; i++) {
-    //         //     Parameter p = params[i];
-    //         //     Class<?> type = p.getType();
-
-    //         //     String nomParam = p.getName();
-
-    //         //     args[i] = convertir(parametres.get(nomParam), type);
-    //         // }
-            
-    //         for (int i = 0; i < params.length; i++) {
-    //             Parameter p = params[i];
-    //             Class<?> type = p.getType();
-    //             String nomParam = p.getName();
-
-    //             if (estTypeSimple(type)) {
-    //                 args[i] = convertir(parametres.get(nomParam), type);
-    //             } else {
-    //                 args[i] = construireObjet(type, nomParam, parametres);
-    //             }
-    //         }
-
-    //         Object value;
-    //         try {
-    //             value = methode.invoke(instance, args);
-    //         } catch (InvocationTargetException e) {
-    //             throw (e.getCause() instanceof Exception) ? (Exception) e.getCause() : e;
-    //         }
-    //         return new InvocationResult(value, methode.isAnnotationPresent(JSON.class));
-    //     }
-
-    //     List<String> urlsDisponibles = new ArrayList<>();
-    //     for (UtilMethode u : urlMappings.keySet()) {
-    //         urlsDisponibles.add("[" + u.getUrl() + ", " + u.getMethode() + "]");
-    //     }
-    //     throw new Exception("Erreur : '" + url + "' [" + httpMethode + "] non trouvée. "
-    //             + "URLs disponibles : " + urlsDisponibles);
-    // }
-
     public Object lireMethodeAndClass(String url, String httpMethode, String packageName,
             Map<UtilMethode, UrlMethode> urlMappings, Map<String, Object> parametres) throws Exception {
         return lireMethodeAndClassResult(url, httpMethode, packageName, urlMappings, parametres).value();
@@ -156,10 +84,27 @@ public class Utilitaire {
                 throw new NoSuchMethodException(nomMethode);
             }
 
-            Object instance = classMethod.getDeclaredConstructor().newInstance();
+            // Object instance = classMethod.getDeclaredConstructor().newInstance();
+
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> instances = (Map<String, Object>) parametres.get("__instances");
+
+            Object instance = instances.computeIfAbsent(classMethod.getName(), nom -> {
+                try {
+                    return classMethod.getDeclaredConstructor().newInstance();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
 
             Parameter[] params = methode.getParameters();
             Object[] args = new Object[params.length];
+
+            HttpSession httpSession = (HttpSession) parametres.get("__httpSession");
+            List<Object[]> sessionsAMettreAJour = new ArrayList<>();
+
+
 
             for (int i = 0; i < params.length; i++) {
                 Parameter p = params[i];
@@ -169,12 +114,27 @@ public class Utilitaire {
 
                 if (type == Part.class) {
                     args[i] = (brut instanceof Part part && part.getSize() > 0) ? part : null;
-                } else if (type == byte[].class) {
+                } 
+                else if (type == byte[].class) {
                     args[i] = (brut instanceof Part part && part.getSize() > 0)
                             ? part.getInputStream().readAllBytes() : null;
-                } else if (estTypeSimple(type)) {
+                } 
+                else if (estTypeSimple(type)) {
                     args[i] = convertir(brut instanceof String s ? s : null, type);
-                } else {
+                }
+                else if (estClasseSession(type)) {
+                    Object sessionObj = type.getDeclaredConstructor().newInstance();
+                    Map<String, Object> mapSession = new HashMap<>();
+                    for (String nom : Collections.list(httpSession.getAttributeNames())) {
+                        mapSession.put(nom, httpSession.getAttribute(nom));
+                    }
+                    champMapSession(type).set(sessionObj, mapSession);
+                    args[i] = sessionObj;
+                    sessionsAMettreAJour.add(new Object[] { sessionObj, mapSession.keySet() });
+
+                    sessionsAMettreAJour.add(new Object[] { sessionObj, new HashSet<>(mapSession.keySet()) });
+                }
+                else {
                     args[i] = construireObjet(type, nomParam, parametres);
                 }
             }
@@ -185,6 +145,26 @@ public class Utilitaire {
             } catch (InvocationTargetException e) {
                 throw (e.getCause() instanceof Exception) ? (Exception) e.getCause() : e;
             }
+
+
+            for (Object[] entree : sessionsAMettreAJour) {
+                Object sessionObj = entree[0];
+                @SuppressWarnings("unchecked")
+                Set<String> clesAvant = (Set<String>) entree[1];
+
+                @SuppressWarnings("unchecked")
+                Map<String, Object> apres = (Map<String, Object>) champMapSession(sessionObj.getClass()).get(sessionObj);
+
+                // ajout et mise à jour
+                for (Map.Entry<String, Object> e : apres.entrySet()) {
+                    httpSession.setAttribute(e.getKey(), e.getValue());
+                }
+                // suppression des clés retirées par le développeur
+                for (String cleString : clesAvant) {
+                    if (!apres.containsKey(cleString)) httpSession.removeAttribute(cleString);
+                }
+            }
+
             return new InvocationResult(value, methode.isAnnotationPresent(JSON.class));
         }
 
@@ -261,166 +241,64 @@ public class Utilitaire {
         dispatcher.forward(request, response);
     }
 
-    // private Object convertir(String valeur, Class<?> type) {
-    //     if (type == String.class) return valeur;
-    //     if (valeur == null || valeur.isEmpty()) {
-    //         if (type == int.class) return 0;
-    //         if (type == long.class) return 0L;
-    //         if (type == double.class) return 0.0;
-    //         if (type == boolean.class) return false;
-    //         return null;
-    //     }
-    //     if (type == int.class || type == Integer.class) return Integer.parseInt(valeur);
-    //     if (type == long.class || type == Long.class) return Long.parseLong(valeur);
-    //     if (type == double.class || type == Double.class) return Double.parseDouble(valeur);
-    //     if (type == boolean.class || type == Boolean.class) return Boolean.parseBoolean(valeur);
-    //     return valeur;
-    // }
+    private Object construireObjet(Class<?> type, String prefixe,
+                                Map<String, Object> parametres) throws Exception {
 
-    // private boolean estTypeSimple(Class<?> type) {
-    //     return type.isPrimitive()
-    //             || type == String.class
-    //             || type == Boolean.class
-    //             || type == Character.class
-    //             || Number.class.isAssignableFrom(type);
-    // }
+        Object obj = type.getDeclaredConstructor().newInstance();
 
-    // private Object construireObjet(Class<?> type, String prefixe, Map<String, String> parametres) throws Exception {
-    //     Object obj = type.getDeclaredConstructor().newInstance();
+        for (Field f : type.getDeclaredFields()) {
+            if (Modifier.isStatic(f.getModifiers()) || Modifier.isFinal(f.getModifiers())) continue;
 
-    //     for (Field f : type.getDeclaredFields()) {
-    //         if (Modifier.isStatic(f.getModifiers()) || Modifier.isFinal(f.getModifiers())) continue;
+            String cle = prefixe + "." + f.getName();
+            Class<?> typeChamp = f.getType();
+            Object brut = parametres.get(cle);
+            f.setAccessible(true);
 
-    //         String valeur = "";
-    //         Class<?> typeChamps = f.getType();
+            if (typeChamp == Part.class) {
+                if (brut instanceof Part part && part.getSize() > 0) f.set(obj, part);
 
-    //         if(estTypeSimple(typeChamps)) {
-    //             valeur = parametres.get(prefixe + "." + f.getName());
-    //         }
-    //         else {
-    //             Object objChamps = typeChamps.getDeclaredConstructor().newInstance();
+            } else if (typeChamp == byte[].class) {
+                if (brut instanceof Part part && part.getSize() > 0)
+                    f.set(obj, part.getInputStream().readAllBytes());
 
-    //             for (Field fc : typeChamps.getDeclaredFields()) {
+            } else if (brut instanceof Part part && !estTypeSimple(typeChamp)) {
+                // fichier envoyé pour un champ objet (ex: MapFile)
+                if (part.getSize() > 0) f.set(obj, convertirFichier(part, typeChamp));
 
-    //             }
-    //         }
+            } else if (estTypeSimple(typeChamp)) {
+                if (brut instanceof String s) f.set(obj, convertir(s, typeChamp));
 
-    //         if (valeur == null) continue;
-
-    //         f.setAccessible(true);
-    //         f.set(obj, convertir(valeur, f.getType()));
-    //     }
-    //     return obj;
-    // }
-private Object construireObjet(Class<?> type, String prefixe,
-                               Map<String, Object> parametres) throws Exception {
-
-    Object obj = type.getDeclaredConstructor().newInstance();
-
-    for (Field f : type.getDeclaredFields()) {
-        if (Modifier.isStatic(f.getModifiers()) || Modifier.isFinal(f.getModifiers())) continue;
-
-        String cle = prefixe + "." + f.getName();
-        Class<?> typeChamp = f.getType();
-        Object brut = parametres.get(cle);
-        f.setAccessible(true);
-
-        if (typeChamp == Part.class) {
-            if (brut instanceof Part part && part.getSize() > 0) f.set(obj, part);
-
-        } else if (typeChamp == byte[].class) {
-            if (brut instanceof Part part && part.getSize() > 0)
-                f.set(obj, part.getInputStream().readAllBytes());
-
-        } else if (brut instanceof Part part && !estTypeSimple(typeChamp)) {
-            // fichier envoyé pour un champ objet (ex: MapFile)
-            if (part.getSize() > 0) f.set(obj, convertirFichier(part, typeChamp));
-
-        } else if (estTypeSimple(typeChamp)) {
-            if (brut instanceof String s) f.set(obj, convertir(s, typeChamp));
-
-        } else if (contientCle(parametres, cle)) {
-            // objet imbriqué
-            f.set(obj, construireObjet(typeChamp, cle, parametres));
+            } else if (contientCle(parametres, cle)) {
+                // objet imbriqué
+                f.set(obj, construireObjet(typeChamp, cle, parametres));
+            }
         }
+        return obj;
     }
-    return obj;
-}
-private Object convertirFichier(Part p, Class<?> typeCible) throws Exception {
-    Object cible = typeCible.getDeclaredConstructor().newInstance();
 
-    String nom = p.getSubmittedFileName() != null ? p.getSubmittedFileName() : "";
-    int point = nom.lastIndexOf('.');
-    String sansExt = (point >= 0) ? nom.substring(0, point) : nom;
-    String extension = (point >= 0) ? nom.substring(point + 1).toLowerCase() : "";
+    private Object convertirFichier(Part p, Class<?> typeCible) throws Exception {
+        Object cible = typeCible.getDeclaredConstructor().newInstance();
 
-    for (Field cf : typeCible.getDeclaredFields()) {
-        if (Modifier.isStatic(cf.getModifiers())) continue;
-        cf.setAccessible(true);
+        String nom = p.getSubmittedFileName() != null ? p.getSubmittedFileName() : "";
+        int point = nom.lastIndexOf('.');
+        String sansExt = (point >= 0) ? nom.substring(0, point) : nom;
+        String extension = (point >= 0) ? nom.substring(point + 1).toLowerCase() : "";
 
-        if (cf.getType() == byte[].class) {
-            cf.set(cible, p.getInputStream().readAllBytes());
-        } else if (cf.getName().equals("fileName")) {
-            cf.set(cible, sansExt);
-        } else if (cf.getName().equals("extension")) {
-            cf.set(cible, extension);
+        for (Field cf : typeCible.getDeclaredFields()) {
+            if (Modifier.isStatic(cf.getModifiers())) continue;
+            cf.setAccessible(true);
+
+            if (cf.getType() == byte[].class) {
+                cf.set(cible, p.getInputStream().readAllBytes());
+            } else if (cf.getName().equals("fileName")) {
+                cf.set(cible, sansExt);
+            } else if (cf.getName().equals("extension")) {
+                cf.set(cible, extension);
+            }
         }
+        return cible;
     }
-    return cible;
-}
-    // private Object construireObjet(Class<?> type, String prefixe,
-    //                            Map<String, String> parametres) throws Exception {
-    //     Object obj = type.getDeclaredConstructor().newInstance();
 
-    //     for (Field f : type.getDeclaredFields()) {
-    //         if (Modifier.isStatic(f.getModifiers()) || Modifier.isFinal(f.getModifiers())) continue;
-
-    //         String cle = prefixe + "." + f.getName();
-    //         Class<?> typeChamp = f.getType();
-    //         f.setAccessible(true);
-
-    //         if (estTypeSimple(typeChamp)) {
-    //             String valeur = parametres.get(cle);
-    //             if (valeur != null) f.set(obj, convertir(valeur, typeChamp));
-
-    //         } else {
-    //             if (contientCle(parametres, cle)) {
-    //                 f.set(obj, construireObjet(typeChamp, cle, parametres));
-    //             }
-    //         }
-    //     }
-    //     return obj;
-    // }
-
-    // private boolean contientCle(Map<String, String> parametres, String cle) {
-    //         String debut = cle + ".";
-    //         for (String k : parametres.keySet()) {
-    //             if (k.startsWith(debut)) return true;
-    //         }
-    //         return false;
-    //     }
-    //     private Object convertirFichier(Part p, Class<?> typeCible) throws Exception {
-    //     Object cible = typeCible.getDeclaredConstructor().newInstance();
-
-    //     String nom = p.getSubmittedFileName() != null ? p.getSubmittedFileName() : "";
-    //     int point = nom.lastIndexOf('.');
-    //     String sansExt = (point >= 0) ? nom.substring(0, point) : nom;
-    //     String extension = (point >= 0) ? nom.substring(point + 1).toLowerCase() : "";
-
-    //     for (Field cf : typeCible.getDeclaredFields()) {
-    //         if (Modifier.isStatic(cf.getModifiers())) continue;
-    //         cf.setAccessible(true);
-
-    //         if (cf.getType() == byte[].class) {
-    //             cf.set(cible, p.getInputStream().readAllBytes());
-    //         } else if (cf.getName().equals("fileName")) {
-    //             cf.set(cible, sansExt);
-    //         } else if (cf.getName().equals("extension")) {
-    //             cf.set(cible, extension);
-    //         }
-    //     }
-    //     return cible;
-    // }
     private boolean estTypeSimple(Class<?> type) {
         return type.isPrimitive()
                 || type == String.class
@@ -459,4 +337,18 @@ private Object convertirFichier(Part p, Class<?> typeCible) throws Exception {
         return valeur;
     }
 
+    private Field champMapSession(Class<?> type) {
+        for (Field f : type.getDeclaredFields()) {
+            if (Map.class.isAssignableFrom(f.getType())) {
+                f.setAccessible(true);
+                return f;
+            }
+        }
+        return null;
+    }
+
+    private boolean estClasseSession(Class<?> type) {
+        return !estTypeSimple(type) && type != Part.class && type != byte[].class
+                && type.getSimpleName().equals("Session") && champMapSession(type) != null;
+    }
 }
