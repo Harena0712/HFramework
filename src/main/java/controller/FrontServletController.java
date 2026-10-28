@@ -10,6 +10,7 @@ import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import service.ModelAndView;
 import service.Utilitaire;
+import service.AuthentificationException;
 import definition.*;
 
 import java.nio.charset.StandardCharsets;
@@ -64,16 +65,14 @@ public class FrontServletController extends HttpServlet {
         String prefix = (String) getServletContext().getAttribute("prefix");
         String suffix = (String) getServletContext().getAttribute("suffix");
         
-        req.setCharacterEncoding("UTF-8");          // 1. avant toute lecture de paramètre
+        req.setCharacterEncoding("UTF-8");
 
         Map<String, Object> parametres = new HashMap<>();
 
-        // 2. Champs texte
         for (Map.Entry<String, String[]> e : req.getParameterMap().entrySet()) {
             parametres.put(e.getKey(), e.getValue()[0]);
         }
 
-        // 3. Fichiers du multipart (si ce bloc est déjà chez toi, garde-le ici)
         String ct = req.getContentType();
         if (ct != null && ct.toLowerCase().startsWith("multipart/")) {
             for (Part part : req.getParts()) {
@@ -88,7 +87,6 @@ public class FrontServletController extends HttpServlet {
             }
         }
 
-        // 4. Map des instances de contrôleurs (créée une seule fois pour toute l'application)
         ServletContext ctx = getServletContext();
         ConcurrentHashMap<String, Object> instances =
                 (ConcurrentHashMap<String, Object>) ctx.getAttribute("controllerInstances");
@@ -102,9 +100,11 @@ public class FrontServletController extends HttpServlet {
             }
         }
 
-        // 5. Clés réservées, en dernier pour qu'un champ de formulaire ne puisse pas les écraser
+        String authKey = this.getInitParameter("authSessionKey");
+
         parametres.put("__httpSession", req.getSession());
         parametres.put("__instances", instances);
+        if (authKey != null) parametres.put("__authKey", authKey);
 
         System.out.println("Content-Type = " + ct);
         System.out.println("parametres = " + parametres);
@@ -130,6 +130,14 @@ public class FrontServletController extends HttpServlet {
             }
 
             utilitaire.trouverChemin(mv, req, res, prefix, suffix);
+
+        } catch (AuthentificationException e) {
+            String loginUrl = this.getInitParameter("loginUrl");
+            if (loginUrl != null) {
+                res.sendRedirect(req.getContextPath() + "/" + loginUrl);
+            } else {
+                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+            }
         } catch (Exception e) {
             e.printStackTrace();
             res.setContentType("text/plain;charset=UTF-8");

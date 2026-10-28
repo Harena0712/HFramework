@@ -84,8 +84,18 @@ public class Utilitaire {
                 throw new NoSuchMethodException(nomMethode);
             }
 
-            // Object instance = classMethod.getDeclaredConstructor().newInstance();
+            if (methode.isAnnotationPresent(Auth.class) || classMethod.isAnnotationPresent(Auth.class)) {
+                HttpSession httpSession = (HttpSession) parametres.get("__httpSession");
+                String authKey = (String) parametres.get("__authKey");
 
+                if (authKey == null) {
+                    throw new IllegalStateException(
+                            "@Auth utilisé mais l'init-param 'authSessionKey' n'est pas défini dans web.xml.");
+                }
+                if (httpSession == null || httpSession.getAttribute(authKey) == null) {
+                    throw new AuthentificationException("Authentification requise.");
+                }
+            }
 
             @SuppressWarnings("unchecked")
             Map<String, Object> instances = (Map<String, Object>) parametres.get("__instances");
@@ -109,7 +119,7 @@ public class Utilitaire {
             for (int i = 0; i < params.length; i++) {
                 Parameter p = params[i];
                 Class<?> type = p.getType();
-                String nomParam = p.getName();   // nécessite -parameters
+                String nomParam = p.getName();
                 Object brut = parametres.get(nomParam);
 
                 if (type == Part.class) {
@@ -155,11 +165,10 @@ public class Utilitaire {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> apres = (Map<String, Object>) champMapSession(sessionObj.getClass()).get(sessionObj);
 
-                // ajout et mise à jour
                 for (Map.Entry<String, Object> e : apres.entrySet()) {
                     httpSession.setAttribute(e.getKey(), e.getValue());
                 }
-                // suppression des clés retirées par le développeur
+
                 for (String cleString : clesAvant) {
                     if (!apres.containsKey(cleString)) httpSession.removeAttribute(cleString);
                 }
@@ -262,14 +271,12 @@ public class Utilitaire {
                     f.set(obj, part.getInputStream().readAllBytes());
 
             } else if (brut instanceof Part part && !estTypeSimple(typeChamp)) {
-                // fichier envoyé pour un champ objet (ex: MapFile)
                 if (part.getSize() > 0) f.set(obj, convertirFichier(part, typeChamp));
 
             } else if (estTypeSimple(typeChamp)) {
                 if (brut instanceof String s) f.set(obj, convertir(s, typeChamp));
 
             } else if (contientCle(parametres, cle)) {
-                // objet imbriqué
                 f.set(obj, construireObjet(typeChamp, cle, parametres));
             }
         }
