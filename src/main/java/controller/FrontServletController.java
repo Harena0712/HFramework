@@ -101,10 +101,12 @@ public class FrontServletController extends HttpServlet {
         }
 
         String authKey = this.getInitParameter("authSessionKey");
+        String roleKey = this.getInitParameter("authRoleKey");
 
         parametres.put("__httpSession", req.getSession());
         parametres.put("__instances", instances);
         if (authKey != null) parametres.put("__authKey", authKey);
+        if (roleKey != null) parametres.put("__roleKey", roleKey);
 
         System.out.println("Content-Type = " + ct);
         System.out.println("parametres = " + parametres);
