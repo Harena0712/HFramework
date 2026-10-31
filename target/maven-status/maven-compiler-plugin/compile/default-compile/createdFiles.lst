@@ -1,3 +1,4 @@
+service/AccesRefuseException.class
 definition/Controller.class
 definition/Auth.class
 service/UrlMethode.class

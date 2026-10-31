@@ -84,18 +84,18 @@ public class Utilitaire {
                 throw new NoSuchMethodException(nomMethode);
             }
 
-            if (methode.isAnnotationPresent(Auth.class) || classMethod.isAnnotationPresent(Auth.class)) {
-                HttpSession httpSession = (HttpSession) parametres.get("__httpSession");
-                String authKey = (String) parametres.get("__authKey");
+            // if (methode.isAnnotationPresent(Auth.class) || classMethod.isAnnotationPresent(Auth.class)) {
+            //     HttpSession httpSession = (HttpSession) parametres.get("__httpSession");
+            //     String authKey = (String) parametres.get("__authKey");
 
-                if (authKey == null) {
-                    throw new IllegalStateException(
-                            "@Auth utilisé mais l'init-param 'authSessionKey' n'est pas défini dans web.xml.");
-                }
-                if (httpSession == null || httpSession.getAttribute(authKey) == null) {
-                    throw new AuthentificationException("Authentification requise.");
-                }
-            }
+            //     if (authKey == null) {
+            //         throw new IllegalStateException(
+            //                 "@Auth utilisé mais l'init-param 'authSessionKey' n'est pas défini dans web.xml.");
+            //     }
+            //     if (httpSession == null || httpSession.getAttribute(authKey) == null) {
+            //         throw new AuthentificationException("Authentification requise.");
+            //     }
+            // }
 
             @SuppressWarnings("unchecked")
             Map<String, Object> instances = (Map<String, Object>) parametres.get("__instances");
@@ -115,6 +115,33 @@ public class Utilitaire {
             List<Object[]> sessionsAMettreAJour = new ArrayList<>();
 
 
+            Auth auth = methode.getAnnotation(Auth.class);
+            if (auth == null) auth = classMethod.getAnnotation(Auth.class);  
+
+            if (auth != null) {
+                String authKey = (String) parametres.get("__authKey");
+                if (authKey == null) {
+                    throw new IllegalStateException(
+                            "@Auth utilisé mais l'init-param 'authSessionKey' n'est pas défini dans web.xml.");
+                }
+                if (httpSession == null || httpSession.getAttribute(authKey) == null) {
+                    throw new AuthentificationException("Authentification requise.");
+                }
+
+                if (auth.roles().length > 0) {
+                    String roleKey = (String) parametres.get("__roleKey");
+                    if (roleKey == null) {
+                        throw new IllegalStateException(
+                                "@Auth(roles) utilisé mais l'init-param 'authRoleKey' n'est pas défini dans web.xml.");
+                    }
+                    Object roleUtilisateur = httpSession.getAttribute(roleKey);
+                    boolean autorise = roleUtilisateur != null
+                            && Arrays.asList(auth.roles()).contains(roleUtilisateur.toString());
+                    if (!autorise) {
+                        throw new AccesRefuseException("Accès refusé : rôle insuffisant.");
+                    }
+                }
+            }
 
             for (int i = 0; i < params.length; i++) {
                 Parameter p = params[i];
