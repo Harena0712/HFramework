@@ -84,22 +84,11 @@ public class Utilitaire {
                 throw new NoSuchMethodException(nomMethode);
             }
 
-            // if (methode.isAnnotationPresent(Auth.class) || classMethod.isAnnotationPresent(Auth.class)) {
-            //     HttpSession httpSession = (HttpSession) parametres.get("__httpSession");
-            //     String authKey = (String) parametres.get("__authKey");
-
-            //     if (authKey == null) {
-            //         throw new IllegalStateException(
-            //                 "@Auth utilisé mais l'init-param 'authSessionKey' n'est pas défini dans web.xml.");
-            //     }
-            //     if (httpSession == null || httpSession.getAttribute(authKey) == null) {
-            //         throw new AuthentificationException("Authentification requise.");
-            //     }
-            // }
-
             @SuppressWarnings("unchecked")
             Map<String, Object> instances = (Map<String, Object>) parametres.get("__instances");
 
+            
+            
             Object instance = instances.computeIfAbsent(classMethod.getName(), nom -> {
                 try {
                     return classMethod.getDeclaredConstructor().newInstance();
